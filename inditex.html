@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원단 CRM 트리거 대시보드</title>
+<style>
+  :root{
+    --navy:#2F3E4E; --steel:#4A6076; --line:#E3E8EE; --bg:#F5F7FA; --card:#FFFFFF;
+    --accent:#C8763C; --ink:#1F2A36; --muted:#6B7A8A;
+    --due:#1F8A5B; --late:#C9A227; --esc:#C0392B; --chipbg:#EEF2F6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+       background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--navy);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .date{margin-left:auto;font-size:13px;opacity:.9}
+  .wrap{max-width:1280px;margin:0 auto;padding:18px 20px 60px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  .panel h2{font-size:13px;letter-spacing:.02em;color:var(--steel);margin:0 0 12px;text-transform:uppercase;font-weight:700}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+  input[type=text],input[type=date],select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;width:100%;background:#fff}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row > div{flex:1;min-width:150px}
+  button{background:var(--navy);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+  button.accent{background:var(--accent)}
+  button:hover{opacity:.92}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .tile .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .tile .v{font-size:26px;font-weight:800;color:var(--navy);line-height:1}
+  .tile .s{font-size:11px;color:var(--muted);margin-top:6px}
+  .tile.esc .v{color:var(--esc)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#F0F3F7;color:var(--steel);font-weight:700;font-size:12px;position:sticky;top:0;cursor:pointer;white-space:nowrap}
+  tbody tr:hover{background:#FAFBFD}
+  .tablewrap{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .chip{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--chipbg);color:var(--steel)}
+  .st-due{background:#E4F5EC;color:var(--due)}
+  .st-late{background:#FBF3D6;color:#8A6D0B}
+  .st-esc{background:#FBE4E1;color:var(--esc)}
+  .g-E{background:#E7EDF5;color:#274C77}
+  .g-F{background:#F0EAE2;color:#8A5A2B}
+  .muted{color:var(--muted)}
+  .note{font-size:12px;color:var(--muted);line-height:1.6}
+  .status-bar{font-size:12px;color:var(--muted);margin-top:8px}
+  .seg-filters{display:flex;gap:6px;flex-wrap:wrap}
+  .seg-filters .segbtn{padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:#fff;color:var(--steel);font-size:12px;font-weight:600;cursor:pointer}
+  .seg-filters .segbtn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  details.routine{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 18px;margin-bottom:16px}
+  details.routine summary{cursor:pointer;padding:14px 0;font-weight:700;color:var(--navy);font-size:14px}
+  .rt{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:0 0 16px}
+  .rt .col h3{font-size:13px;margin:0 0 8px;color:var(--accent)}
+  .rt ul{margin:0;padding-left:18px}
+  .rt li{margin-bottom:6px;font-size:12.5px}
+  .rt .time{font-weight:700;color:var(--steel)}
+  @media(max-width:720px){.rt{grid-template-columns:1fr}}
+  .legend{font-size:11px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .action{font-size:12px}
+  .angle{font-size:11.5px;color:var(--steel)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧵 원단 CRM · 데일리 트리거 대시보드</h1>
+  <div class="date" id="todayLabel"></div>
+</header>
+<div class="wrap">
+
+  <!-- 연동 설정 -->
+  <div class="panel">
+    <h2>1 · 구글 시트 연동</h2>
+    <div class="row">
+      <div style="flex:3">
+        <label>구글 시트 "웹에 게시(CSV)" 주소</label>
+        <input type="text" id="csvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+      </div>
+      <div style="flex:0 0 auto">
+        <button onclick="loadData()">불러오기</button>
+      </div>
+      <div style="flex:0 0 auto">
+        <button class="ghost" onclick="loadDemo()">데모 데이터</button>
+      </div>
+      <div style="flex:0 0 auto">
+        <label>기준일(오늘)</label>
+        <input type="date" id="asOf" onchange="render()">
+      </div>
+    </div>
+    <div class="status-bar" id="loadStatus">시트 주소를 입력하고 <b>불러오기</b>를 누르거나, <b>데모 데이터</b>로 먼저 확인해 보세요.</div>
+    <div class="note" style="margin-top:10px">
+      게시 방법: 구글 시트 → <b>파일 → 공유 → 웹에 게시</b> → 해당 시트 선택 → <b>쉼표로 구분된 값(.csv)</b> → 게시 → 나오는 링크를 위에 붙여넣기.
+      필요한 열: <b>거래처약명 · 26년 등급(E/F) · 마지막 발주일 · 총 발주 횟수 · 매출합계 공급금액</b> (선택: 세그먼트 · 현재 담당자 · 미거래 기간). 세그먼트 열이 없으면 금액·횟수로 자동 분류합니다.
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="tiles" id="tiles"></div>
+  <div style="height:16px"></div>
+
+  <!-- 필터 -->
+  <div class="panel">
+    <h2>2 · 오늘 컨택 대상 필터</h2>
+    <div class="row">
+      <div style="flex:0 0 auto">
+        <label>등급</label>
+        <select id="fGrade" onchange="render()">
+          <option value="ALL">전체</option><option value="E">E등급</option><option value="F">F등급</option>
+        </select>
+      </div>
+      <div style="flex:0 0 auto">
+        <label>상태</label>
+        <select id="fStatus" onchange="render()">
+          <option value="TRIG">트리거 도래 전체</option>
+          <option value="DUE">오늘 도래(신규)</option>
+          <option value="ESC">콜 필요(에스컬레이션)</option>
+          <option value="LATE">지연·누적</option>
+          <option value="ALL">전체 고객</option>
+        </select>
+      </div>
+      <div style="flex:2">
+        <label>검색(거래처/담당자)</label>
+        <input type="text" id="fSearch" oninput="render()" placeholder="이름 입력">
+      </div>
+      <div style="flex:0 0 auto">
+        <button class="accent" onclick="exportCsv()">오늘 컨택 리스트 내보내기</button>
+      </div>
+    </div>
+    <div class="seg-filters" id="segFilters" style="margin-top:12px"></div>
+    <div class="legend">
+      <span><span class="chip st-due">도래</span> 주기 도달(오늘~+3일)</span>
+      <span><span class="chip st-late">지연</span> 주기 초과 누적</span>
+      <span><span class="chip st-esc">콜필요</span> 주기 1.5배 초과</span>
+    </div>
+  </div>
+
+  <!-- 테이블 -->
+  <div class="panel">
+    <h2>3 · 트리거 대상 고객 <span class="muted" id="cnt"></span></h2>
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr>
+          <th onclick="sortBy('name')">거래처약명</th>
+          <th onclick="sortBy('grade')">등급</th>
+          <th onclick="sortBy('seg')">세그먼트</th>
+          <th onclick="sortBy('owner')">담당자</th>
+          <th onclick="sortBy('last')">마지막 발주일</th>
+          <th onclick="sortBy('days')">경과일</th>
+          <th>기준(주기)</th>
+          <th onclick="sortBy('status')">상태</th>
+          <th>권장 액션</th>
+          <th>메시지 앵글(디자이너 페인)</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 데일리 루틴 -->
+  <details class="routine" open>
+    <summary>📋 데일리 운영 루틴 (오전 CRM / 오후 쇼룸)</summary>
+    <div class="rt">
+      <div class="col">
+        <h3>오전 08:00–12:00 · CRM 고객관리</h3>
+        <ul>
+          <li><span class="time">08:00</span> 이 대시보드 새로고침 → 오늘 트리거 도래 고객 확인, 담당 배분</li>
+          <li><span class="time">08:20</span> <b>콜필요(에스컬레이션)</b> 먼저 처리 — 핵심VIP·고액스팟 직접 전화/개별 메시지</li>
+          <li><span class="time">09:00</span> <b>도래(신규)</b> 세그먼트 순서로 컨택: 핵심VIP → 고액스팟 → 다빈도소액</li>
+          <li><span class="time">10:30</span> 어제 발송 건 응답·샘플요청 팔로업(48h 내 응대)</li>
+          <li><span class="time">11:15</span> 저활동 리인게이지 시퀀스 발송/점검</li>
+          <li><span class="time">11:45</span> 처리결과를 구글 시트에 반영(마지막 발주일·응답·메모) → 내일 자동 반영</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>오후 · 쇼룸 신규 리드 인입</h3>
+        <ul>
+          <li><span class="time">13:00</span> 쇼룸 오픈 준비 — 신상 스와치·컬러카드·혜택 안내물 세팅</li>
+          <li><span class="time">방문 시</span> <b>카페24 회원가입</b> 유도 + 첫 구매/샘플 혜택 안내</li>
+          <li><span class="time">방문 시</span> 방문 리드 기록(연락처·관심 소재·시즌 개발 일정) → 구글 시트 신규행 추가</li>
+          <li><span class="time">17:00</span> 당일 신규 가입/리드 집계, 혜택 발송 대상 정리</li>
+          <li><span class="time">17:40</span> 신규 리드 육성 시퀀스 등록(1차 팔로업 D+3 예약)</li>
+          <li><span class="time">18:00</span> 오전 CRM 실적 + 오후 리드 수 일일 마감</li>
+        </ul>
+      </div>
+    </div>
+  </details>
+
+  <div class="note">
+    트리거 기준(근거): 세그먼트별 <b>실제 재발주 주기 중간값</b> — E등급 핵심VIP 7일·고액스팟 19일·다빈도소액 7일·저활동 미거래 57일(P75) / F등급 핵심VIP 19일·고액스팟 22일·다빈도소액 24일·저활동 미거래 156일(P75). 경과일이 주기를 넘으면 "도래", 1.5배를 넘으면 "콜필요"로 분류합니다.
+  </div>
+</div>
+
+<script>
+// ===== 근거 기반 트리거 기준 (세그먼트별 재발주 주기, 일) =====
+const CYCLE = {
+  E:{ '핵심VIP':7, '고액스팟':19, '다빈도소액':7, '저활동':57 },
+  F:{ '핵심VIP':19,'고액스팟':22, '다빈도소액':24,'저활동':156 }
+};
+// 세그먼트 자동분류용 등급별 중간값(세그먼트 열이 없을 때)
+const MED = { E:{amt:9090900,cnt:15}, F:{amt:912000,cnt:2} };
+const ACTION = {
+  '핵심VIP':'전담 컨택·선주문/차기물량 제안',
+  '고액스팟':'정기발주 약정 제안·리드타임 안내',
+  '다빈도소액':'수량구간 할인·연관소재 업셀',
+  '저활동':'첫 재발주 인센티브·신규 스와치'
+};
+const ANGLE = {
+  '핵심VIP':'생산 중 소진·품절 불안 → 다음 시즌 물량/컬러 선확보',
+  '고액스팟':'리드타임·재고 확보 → 소진 전 지금 재확보',
+  '다빈도소액':'최소수량·배송 부담 → 수량↑ 단가·배송 유리',
+  '저활동':'샘플 후 미발주 → 첫 재발주 인센티브 제안'
+};
+const SEGS=['핵심VIP','고액스팟','다빈도소액','저활동'];
+let RAW=[], activeSegs=new Set(SEGS), sortKey='days', sortDir=-1;
+
+document.getElementById('asOf').valueAsDate=new Date();
+document.getElementById('todayLabel').textContent='기준일 '+fmt(new Date());
+buildSegFilters();
+
+function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function asOfDate(){const v=document.getElementById('asOf').value; return v?new Date(v+'T00:00:00'):new Date();}
+
+// ---- CSV 파서 (따옴표·쉼표·줄바꿈 처리) ----
+function parseCSV(text){
+  const rows=[];let f='',row=[],q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false;} else f+=c; }
+    else{ if(c==='"')q=true; else if(c===','){row.push(f);f='';}
+      else if(c==='\n'){row.push(f);rows.push(row);row=[];f='';}
+      else if(c==='\r'){} else f+=c; } }
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.some(x=>x.trim()!==''));
+}
+function findCol(headers,keys){
+  for(let i=0;i<headers.length;i++){const h=(headers[i]||'').replace(/\s/g,'');
+    for(const k of keys) if(h.includes(k)) return i;}
+  return -1;
+}
+function parseDate(s){
+  if(!s)return null; s=String(s).trim();
+  if(/^\d+(\.\d+)?$/.test(s)&&Number(s)>30000){ // 엑셀 시리얼
+    const d=new Date(Date.UTC(1899,11,30)); d.setUTCDate(d.getUTCDate()+Math.floor(Number(s))); return d;}
+  s=s.replace(/[.]/g,'-').replace(/\s/g,'').replace(/-+$/,'').replace(/-+/g,'-');
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function num(s){ if(s==null)return 0; const n=Number(String(s).replace(/[^0-9.-]/g,'')); return isNaN(n)?0:n; }
+function normSeg(s){ s=String(s||''); for(const k of SEGS) if(s.includes(k)) return k;
+  if(s.includes('VIP'))return '핵심VIP'; return ''; }
+
+function mapRows(matrix){
+  const H=matrix[0];
+  const ci={ name:findCol(H,['약명','거래처명','거래처']), grade:findCol(H,['26년등급','등급']),
+    last:findCol(H,['마지막발주','최근발주','마지막거래']), cnt:findCol(H,['총발주횟수','발주횟수']),
+    amt:findCol(H,['매출합계공급금액','공급금액','매출합계','금액']), seg:findCol(H,['세그먼트']),
+    owner:findCol(H,['현재담당자','담당자','담당']), idle:findCol(H,['미거래']) };
+  const out=[];
+  for(let r=1;r<matrix.length;r++){const row=matrix[r];
+    const grade=(ci.grade>=0?String(row[ci.grade]||'').trim().toUpperCase():'').charAt(0);
+    if(grade!=='E'&&grade!=='F')continue;
+    const amt=num(row[ci.amt]), cnt=num(row[ci.cnt]);
+    let seg=ci.seg>=0?normSeg(row[ci.seg]):'';
+    if(!seg){ const m=MED[grade]; const hiA=amt>m.amt, hiC=cnt>m.cnt;
+      seg = hiC&&hiA?'핵심VIP': hiC&&!hiA?'다빈도소액': !hiC&&hiA?'고액스팟':'저활동'; }
+    const last=ci.last>=0?parseDate(row[ci.last]):null;
+    out.push({ name:ci.name>=0?row[ci.name]:'(무명)', grade, seg, amt, cnt,
+      owner:ci.owner>=0?row[ci.owner]:'', last,
+      idle: ci.idle>=0?num(row[ci.idle]):null });
+  }
+  return out;
+}
+
+function computeStatus(c){
+  const today=asOfDate();
+  let days = c.last ? Math.floor((today-c.last)/86400000) : (c.idle!=null?c.idle:null);
+  c.days = days;
+  const cyc = CYCLE[c.grade][c.seg];
+  c.cycle = cyc;
+  if(days==null){ c.status='정보없음'; c.trig=false; return; }
+  if(days >= cyc*1.5){ c.status='콜필요'; c.trig=true; }
+  else if(days >= cyc && days <= cyc+3){ c.status='도래'; c.trig=true; }
+  else if(days > cyc){ c.status='지연'; c.trig=true; }
+  else { c.status='주기내'; c.trig=false; }
+}
+
+function loadData(){
+  const url=document.getElementById('csvUrl').value.trim();
+  if(!url){ setStatus('시트 주소를 입력하세요.',true); return; }
+  setStatus('불러오는 중…');
+  fetch(url).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(t=>{ RAW=mapRows(parseCSV(t));
+      setStatus('연동 완료 · '+RAW.length+'명 로드 · '+new Date().toLocaleTimeString('ko-KR'));
+      render();})
+    .catch(e=>setStatus('불러오기 실패: '+e.message+' — 시트가 "웹에 게시(CSV)" 되었는지, 주소가 pub?output=csv 형식인지 확인하세요.',true));
+}
+function setStatus(msg,err){const el=document.getElementById('loadStatus');el.innerHTML=msg;el.style.color=err?'#C0392B':'#6B7A8A';}
+
+function buildSegFilters(){
+  const box=document.getElementById('segFilters');
+  box.innerHTML='<span style="font-size:12px;color:#6B7A8A;align-self:center">세그먼트:</span>';
+  SEGS.forEach(s=>{const b=document.createElement('button');b.className='segbtn on';b.textContent=s;
+    b.onclick=()=>{ if(activeSegs.has(s)){activeSegs.delete(s);b.classList.remove('on');}
+      else{activeSegs.add(s);b.classList.add('on');} render(); };
+    box.appendChild(b);});
+}
+
+function render(){
+  RAW.forEach(computeStatus);
+  const g=document.getElementById('fGrade').value;
+  const st=document.getElementById('fStatus').value;
+  const q=document.getElementById('fSearch').value.trim();
+  let rows=RAW.filter(c=>activeSegs.has(c.seg));
+  if(g!=='ALL')rows=rows.filter(c=>c.grade===g);
+  if(q)rows=rows.filter(c=>(String(c.name)+String(c.owner)).includes(q));
+  // 상태 필터
+  const base=rows;
+  if(st==='TRIG')rows=rows.filter(c=>c.trig);
+  else if(st==='DUE')rows=rows.filter(c=>c.status==='도래');
+  else if(st==='ESC')rows=rows.filter(c=>c.status==='콜필요');
+  else if(st==='LATE')rows=rows.filter(c=>c.status==='지연');
+  // 정렬
+  rows.sort((a,b)=>{let x=a[sortKey],y=b[sortKey];
+    if(sortKey==='last'){x=a.last?a.last.getTime():0;y=b.last?b.last.getTime():0;}
+    if(typeof x==='string'){x=x||'';y=y||'';return sortDir*x.localeCompare(y);}
+    return sortDir*((x||0)-(y||0));});
+  window._view=rows;
+  renderTiles(base);
+  renderTable(rows);
+  document.getElementById('cnt').textContent='· '+rows.length+'명';
+}
+function renderTiles(rows){
+  const trig=rows.filter(c=>c.trig);
+  const due=rows.filter(c=>c.status==='도래').length;
+  const esc=rows.filter(c=>c.status==='콜필요').length;
+  const late=rows.filter(c=>c.status==='지연').length;
+  const eN=trig.filter(c=>c.grade==='E').length, fN=trig.filter(c=>c.grade==='F').length;
+  const t=[
+    ['오늘 트리거 도래', trig.length, 'E '+eN+' · F '+fN, ''],
+    ['도래(신규)', due, '주기 도달', ''],
+    ['콜 필요', esc, '주기 1.5배 초과', 'esc'],
+    ['지연·누적', late, '주기 초과', ''],
+  ];
+  document.getElementById('tiles').innerHTML=t.map(x=>
+    `<div class="tile ${x[3]}"><div class="k">${x[0]}</div><div class="v">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+}
+function renderTable(rows){
+  const stCls={'도래':'st-due','지연':'st-late','콜필요':'st-esc','주기내':'','정보없음':''};
+  document.getElementById('tbody').innerHTML = rows.map(c=>`
+    <tr>
+      <td><b>${esc(c.name)}</b></td>
+      <td><span class="chip g-${c.grade}">${c.grade}</span></td>
+      <td>${c.seg}</td>
+      <td>${esc(c.owner||'')}</td>
+      <td>${c.last?fmt(c.last):'<span class=muted>-</span>'}</td>
+      <td><b>${c.days==null?'-':c.days+'일'}</b></td>
+      <td class="muted">${c.cycle}일</td>
+      <td><span class="chip ${stCls[c.status]||''}">${c.status}</span></td>
+      <td class="action">${ACTION[c.seg]}</td>
+      <td class="angle">${ANGLE[c.seg]}</td>
+    </tr>`).join('') || '<tr><td colspan="10" class="muted" style="text-align:center;padding:30px">해당 조건의 고객이 없습니다. 시트를 불러오거나 필터를 조정하세요.</td></tr>';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+function sortBy(k){ if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} render(); }
+
+function exportCsv(){
+  const rows=window._view||[];
+  const head=['거래처약명','등급','세그먼트','담당자','마지막발주일','경과일','기준주기','상태','권장액션','메시지앵글'];
+  const lines=[head.join(',')].concat(rows.map(c=>[
+    c.name,c.grade,c.seg,c.owner,c.last?fmt(c.last):'',c.days==null?'':c.days,c.cycle,c.status,ACTION[c.seg],ANGLE[c.seg]
+  ].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')));
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='오늘_컨택리스트_'+fmt(asOfDate())+'.csv';a.click();
+}
+
+// ---- 데모 데이터 ----
+function loadDemo(){
+  const t=asOfDate(); const d=n=>{const x=new Date(t);x.setDate(x.getDate()-n);return fmt(x);};
+  const demo=[
+    ['거래처약명','26년 등급','세그먼트','현재 담당자','마지막 발주일','총 발주 횟수','매출합계 공급금액'],
+    ['디케이패션/키','E','핵심VIP(자주+고액)','키노피오',d(9),'22','12500000'],
+    ['인덱스/본','E','고액스팟(가끔+고액)','조던',d(25),'6','9800000'],
+    ['아이콘닷컴/키','E','다빈도소액(자주+소액)','키노피오',d(8),'14','5200000'],
+    ['라움/프로모','F','핵심VIP(자주+고액)','미르',d(24),'8','1450000'],
+    ['보라티알/키','F','고액스팟(가끔+고액)','조던',d(40),'3','1320000'],
+    ['수아레/본','F','다빈도소액(자주+소액)','미르',d(30),'5','780000'],
+    ['제로플러스/키','F','저활동(가끔+소액)','키노피오',d(170),'1','210000'],
+    ['모디무드/본','F','핵심VIP(자주+고액)','조던',d(12),'9','1680000'],
+    ['에스제이/키','E','저활동(가끔+소액)','미르',d(60),'12','7100000'],
+  ];
+  RAW=mapRows(demo);
+  setStatus('데모 데이터 로드됨 · '+RAW.length+'명 (실제 연동 시 구글 시트 주소를 입력하세요)');
+  render();
+}
+loadDemo();
+</script>
+</body>
+</html>
